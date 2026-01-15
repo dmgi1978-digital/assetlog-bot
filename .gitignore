@@ -1,2 +1,17 @@
+# Python
 __pycache__/
+*.pyc
 .env
+.env.local
+
+# База данных (локальная)
+*.db
+*.sqlite
+
+# IDE / редакторы
+.vscode/
+.idea/
+.DS_Store
+
+# Fly.io (если используется локально)
+flyctl
