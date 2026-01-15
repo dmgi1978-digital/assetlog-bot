@@ -4,10 +4,10 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import httpx
+from flask import Flask, request
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PORT = int(os.getenv("PORT", 8080))
-WEBHOOK_URL = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/{BOT_TOKEN}"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -55,15 +55,18 @@ async def add_asset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("❌ Invalid input. Use: /add BTC 0.5 2026-01-15")
 
-if __name__ == "__main__":
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("add", add_asset))
-    
-    # Set webhook
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=BOT_TOKEN,
-        webhook_url=WEBHOOK_URL
+# --- Webhook handler ---
+app_flask = Flask(__name__)
+
+@app_flask.route(f'/{BOT_TOKEN}', methods=['POST'])
+def webhook():
+    application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("add", add_asset))
+    application.process_update(
+        Update.de_json(request.get_json(force=True), application.bot)
     )
+    return 'OK'
+
+if __name__ == "__main__":
+    app_flask.run(host="0.0.0.0", port=PORT)
