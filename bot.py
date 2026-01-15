@@ -4,11 +4,9 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import httpx
-from flask import Flask, request
-import asyncio
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-PORT = int(os.getenv("PORT", 10000))
+PORT = int(os.getenv("PORT", 8443))  # Render использует 8443 для HTTPS
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,27 +55,16 @@ async def add_asset(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error in /add: {e}")
         await update.message.reply_text("❌ Invalid input. Use: /add BTC 0.5 2026-01-15")
 
-# --- Webhook handler ---
-app = Flask(__name__)
-
-@app.route(f'/{BOT_TOKEN}', methods=['POST'])
-def webhook():
-    # Получаем данные
-    json_data = request.get_json()
-    
-    # Запускаем асинхронную обработку
-    def run_async():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        application = Application.builder().token(BOT_TOKEN).build()
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("add", add_asset))
-        update = Update.de_json(json_data, application.bot)
-        loop.run_until_complete(application.process_update(update))
-        loop.close()
-    
-    run_async()
-    return 'OK'
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("add", add_asset))
+
+    # Запуск Webhook
+    WEBHOOK_URL = f"https://assetlog-bot-1.onrender.com/{BOT_TOKEN}"
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=BOT_TOKEN,
+        webhook_url=WEBHOOK_URL
+    )
